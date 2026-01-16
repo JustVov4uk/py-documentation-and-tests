@@ -3,6 +3,7 @@ import os
 
 from PIL import Image
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 
@@ -14,10 +15,6 @@ from cinema.serializers import MovieDetailSerializer
 
 MOVIE_URL = reverse("cinema:movie-list")
 MOVIE_SESSION_URL = reverse("cinema:moviesession-list")
-
-
-def detail_url(movie_id):
-    return reverse("cinema:movie-detail", args=[movie_id])
 
 
 def sample_movie(**params):
@@ -247,7 +244,7 @@ class AdminMovieTests(TestCase):
 class ListMovieFilterApiTests(TestCase):
     def setUp(self):
         self.client = APIClient()
-        self.user = get_user_model().objects.create(
+        self.user = get_user_model().objects.create_user(
             email="test@myproject.com",
             password="Test password",
         )
@@ -256,10 +253,12 @@ class ListMovieFilterApiTests(TestCase):
     def test_filter_movies_by_title(self):
         movie1 = Movie.objects.create(
             title="Matrix",
+            description="Test Description",
             duration=90,
         )
         movie2 = Movie.objects.create(
             title="Save private Ryan",
+            description="Test Description",
             duration=120,
         )
 
@@ -275,18 +274,21 @@ class ListMovieFilterApiTests(TestCase):
 
         movie1 = Movie.objects.create(
             title="Matrix",
+            description="Test Description",
             duration=90,
         )
         movie1.genres.add(genre1)
 
         movie2 = Movie.objects.create(
             title="Astral",
+            description="Test Description",
             duration=120,
         )
         movie2.genres.add(genre2)
 
         movie3 = Movie.objects.create(
             title="Hostel",
+            description="Test Description",
             duration=120,
         )
         movie3.genres.add(genre1, genre2)
@@ -310,18 +312,21 @@ class ListMovieFilterApiTests(TestCase):
 
         movie1 = Movie.objects.create(
             title="Matrix",
+            description="Test Description",
             duration=90,
         )
         movie1.actors.add(actor1)
 
         movie2 = Movie.objects.create(
             title="Astral",
+            description="Test Description",
             duration=120,
         )
         movie2.actors.add(actor2)
 
         movie3 = Movie.objects.create(
             title="Hostel",
+            description="Test Description",
             duration=120,
         )
         movie3.actors.add(actor1, actor2)
@@ -332,3 +337,31 @@ class ListMovieFilterApiTests(TestCase):
         self.assertIn("Matrix", titles)
         self.assertIn("Hostel", titles)
         self.assertNotIn("Astral", titles)
+
+
+class MovieImageUploadTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+        self.user = get_user_model().objects.create_user(
+            email="test@myproject.com",
+            password="Test password",
+        )
+        self.client.force_authenticate(self.user)
+
+        self.movie = sample_movie()
+
+    def test_non_admin_cannot_upload_image(self):
+        image = SimpleUploadedFile(
+            "image.jpg",
+            b"image",
+            content_type="image/jpeg",
+        )
+        url = image_upload_url(self.movie.id)
+        result = self.client.post(
+            url,
+            {"image": image},
+            format="multipart",
+        )
+
+        self.assertEqual(result.status_code, status.HTTP_403_FORBIDDEN)
